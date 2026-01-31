@@ -208,11 +208,13 @@ public class GameManager : MonoBehaviour
         if (currentState == GameState.Playing)
         {
             currentState = GameState.Paused;
+            HUDController.Instance.pausePanel.SetActive(true);
             Time.timeScale = 0;
         }
         else if (currentState == GameState.Paused)
         {
             currentState = GameState.Playing;
+            HUDController.Instance.pausePanel.SetActive(false);
             Time.timeScale = 1;
         }
     }

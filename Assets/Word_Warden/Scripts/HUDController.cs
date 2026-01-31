@@ -18,6 +18,7 @@ public class HUDController : MonoBehaviour
     public GameObject waveClearOverlay;
     public GameObject shopPanel; // ADD THIS in the Inspector
     public GameObject gameOverPanel;
+    public GameObject pausePanel;
 
     private void Awake()
     {
@@ -34,6 +35,10 @@ public class HUDController : MonoBehaviour
         if (gameOverPanel != null)
         {
             gameOverPanel.SetActive(false);
+        }
+        if (pausePanel != null)
+        {
+            pausePanel.SetActive(false);
         }
     }
 

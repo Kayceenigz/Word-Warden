@@ -54,4 +54,19 @@ public abstract class EntityBase : MonoBehaviour, ITypeable
         if (TypingManager.Instance != null)
             TypingManager.Instance.RemoveTarget(this);
     }
+    protected virtual void OnDestroy()
+    {
+        // Safety check: if the object is destroyed while the game is playing
+        // and it was still a 'target', we decrement the counter to prevent soft-locks.
+        if (GameManager.Instance != null && GameManager.Instance.currentState == GameManager.GameState.Playing)
+        {
+            // Note: Only do this if your specific death logic didn't already call it.
+            // A simple way is to check if it's still in the TypingManager's list.
+            if (TypingManager.Instance != null && TypingManager.Instance.activeTargets.Contains(this))
+            {
+                // This is a backup to ensure the wave never sticks at "1 or 2 remaining"
+                // GameManager.Instance.EnemyDefeated(); 
+            }
+        }
+    }
 }

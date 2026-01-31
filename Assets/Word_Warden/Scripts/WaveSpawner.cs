@@ -54,11 +54,14 @@ public class WaveSpawner : MonoBehaviour
 
         if (isSurvivor)
         {
-            obj = Instantiate(survivorPrefab, spawnPoint.position, Quaternion.identity);
-            SurvivorController sc = obj.GetComponent<SurvivorController>();
+            if(StackManager.Instance.stackUnits.Count<3)
+            {
+                obj = Instantiate(survivorPrefab, spawnPoint.position, Quaternion.identity);
+                SurvivorController sc = obj.GetComponent<SurvivorController>();
 
-            sc.assignedWord = WordBank.Instance.GetWordByDifficulty(0);
-            sc.secondWord = WordBank.Instance.GetWordByDifficulty(0);
+                sc.assignedWord = WordBank.Instance.GetWordByDifficulty(0);
+                sc.secondWord = WordBank.Instance.GetWordByDifficulty(0);
+            }
         }
         else
         {
