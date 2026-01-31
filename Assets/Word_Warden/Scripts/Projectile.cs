@@ -5,21 +5,28 @@ public class Projectile : MonoBehaviour
     public float speed = 10f;
     private float damage;
 
-    public void Setup(float dmg) => damage = dmg;
+    public void Setup(float dmg)
+    {
+        damage = dmg;
+        // Self-destruct after 3 seconds so we don't leak memory
+        Destroy(gameObject, 3f);
+    }
 
     void Update()
     {
+        // Move right
         transform.Translate(Vector2.right * speed * Time.deltaTime);
-        // Destroy if off screen
-        if (transform.position.x > 15f) Destroy(gameObject);
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (collision.CompareTag("Enemy"))
         {
-            collision.GetComponent<EnemyController>().TakeDamage(damage);
-            Destroy(gameObject); // Bullet impact
+            // Deal damage to the zombie
+            collision.GetComponent<EntityBase>()?.TakeDamage(damage);
+
+            // Destroy the bullet
+            Destroy(gameObject);
         }
     }
 }

@@ -27,18 +27,13 @@ public class SurvivorController : EntityBase
     {
         currentState = SurvivorState.Kneeling;
         moveSpeed = 0;
-
-        // Update word for the second phase of typing
         assignedWord = secondWord;
-
-        // GDD: Visual glow/kneel effect
-        Debug.Log("Survivor Unmasked! Quick, type: " + secondWord);
 
         yield return new WaitForSeconds(kneelDuration);
 
         if (currentState == SurvivorState.Kneeling)
         {
-            // If not recruited in time, they disappear (fail state)
+            // Just call Die() - let Die handle the GameManager notification
             Die();
         }
     }
@@ -47,11 +42,33 @@ public class SurvivorController : EntityBase
     {
         currentState = SurvivorState.Recruited;
 
-        // Important: Stop the TypingManager from tracking this survivor as an enemy
+        // Tell TypingManager they are no longer a target
         TypingManager.Instance.RemoveTarget(this);
 
-        // Add to the stack logic
+        // Tell GameManager this "threat" is handled
+        GameManager.Instance.EnemyDefeated();
+
         StackManager.Instance.AddRecruitToStack(this.gameObject);
+
+        // IMPORTANT: We do NOT call Die() here because they are 
+        // now part of the stack and alive!
+    }
+
+    protected override void Die()
+    {
+        // 1. Tell TypingManager to stop tracking us
+        if (TypingManager.Instance != null)
+            TypingManager.Instance.RemoveTarget(this);
+
+        // 2. ONLY notify GameManager if we were NOT recruited.
+        // If we are recruited, GameManager was already notified in Recruit().
+        // If we are dying from the Kneel state or being cleared, notify now.
+        if (currentState != SurvivorState.Recruited && GameManager.Instance != null)
+        {
+            GameManager.Instance.EnemyDefeated();
+        }
+
+        Destroy(gameObject);
     }
 
     // This is the CRITICAL part for the Stack Cascade
@@ -68,14 +85,5 @@ public class SurvivorController : EntityBase
                 Die();
             }
         }
-    }
-
-    protected override void Die()
-    {
-        // Clean cleanup
-        if (TypingManager.Instance != null)
-            TypingManager.Instance.RemoveTarget(this);
-
-        Destroy(gameObject);
     }
 }

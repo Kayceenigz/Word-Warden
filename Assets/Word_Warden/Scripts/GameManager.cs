@@ -20,8 +20,37 @@ public class GameManager : MonoBehaviour
     public GameObject shopPanel;
 
     [Header("Upgrades")]
-    public int speedUpgradeLevel = 0;
     public int coinBonusLevel = 0;
+
+    [Header("Global Upgrades")]
+    public int speedUpgradeLevel = 0;
+    public int damageUpgradeLevel = 0;
+
+    [HideInInspector] public bool isSpawning = false;
+
+    public void UpgradeGlobalSpeed()
+    {
+        int cost = 100 + (speedUpgradeLevel * 50); // Price increases each time
+        if (currentCoins >= cost)
+        {
+            currentCoins -= cost;
+            speedUpgradeLevel++;
+            HUDController.Instance.UpdateEconomyUI(currentCoins);
+            Debug.Log("Global Attack Speed is now Level " + speedUpgradeLevel);
+        }
+    }
+
+    public void UpgradeGlobalDamage()
+    {
+        int cost = 100 + (damageUpgradeLevel * 50);
+        if (currentCoins >= cost)
+        {
+            currentCoins -= cost;
+            damageUpgradeLevel++;
+            HUDController.Instance.UpdateEconomyUI(currentCoins);
+            Debug.Log("Global Damage is now Level " + damageUpgradeLevel);
+        }
+    }
 
     public void UpgradeRecruitSpeed()
     {
@@ -86,15 +115,16 @@ public class GameManager : MonoBehaviour
 
         WaveSpawner.Instance.SpawnWave(currentWave);
     }
+    
 
     public void EnemyDefeated()
     {
         enemiesRemaining--;
+        Debug.Log($"Enemy Down. {enemiesRemaining} left.");
 
-        // Debug check: This helps you find which prefab is missing the call
-        Debug.Log($"Enemy Down. {enemiesRemaining} left in Wave {currentWave}");
-
-        if (enemiesRemaining <= 0 && currentState == GameState.Playing)
+        // SAFETY CHECK: Only end wave if the spawner is actually DONE 
+        // and no enemies are left.
+        if (enemiesRemaining <= 0 && !isSpawning && currentState == GameState.Playing)
         {
             EndWave();
         }
@@ -137,7 +167,6 @@ public class GameManager : MonoBehaviour
         currentState = GameState.GameOver;
         Time.timeScale = 0;
         Debug.Log("GAME OVER: Base Destroyed.");
-        // Programmer A: Show Game Over Screen here
     }
 
     public void Reload()

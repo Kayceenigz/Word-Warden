@@ -19,8 +19,8 @@ public class StackManager : MonoBehaviour
 
     public void AddRecruitToStack(GameObject recruit)
     {
-        // GDD: Cap stack at 4 units
-        if (stackUnits.Count >= 4) return;
+        // GDD: Cap stack at 3 units
+        if (stackUnits.Count >= 3) return;
 
         Vector3 newPos = stackBasePosition.position + (Vector3.up * (stackUnits.Count * unitHeight));
         recruit.transform.position = newPos;
