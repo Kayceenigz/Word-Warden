@@ -7,10 +7,10 @@ public class StackManager : MonoBehaviour
 
     public List<GameObject> stackUnits = new List<GameObject>();
     public Transform stackBasePosition;
-    public float unitHeight = 1.0f; // Height of sprite
+    public float unitHeight = 1.5f; // Set this to match your sprite size
 
     [Header("Base Fortress Stats")]
-    public float fortressHealth = 100f; // The "Base Turret" health
+    public float fortressHealth = 100f;
 
     private void Awake()
     {
@@ -19,14 +19,18 @@ public class StackManager : MonoBehaviour
 
     public void AddRecruitToStack(GameObject recruit)
     {
-        // Calculate position based on current stack size
-        Vector3 newPos = stackBasePosition.position + (Vector3.up * (stackUnits.Count * unitHeight));
+        // GDD: Cap stack at 4 units
+        if (stackUnits.Count >= 4) return;
 
+        Vector3 newPos = stackBasePosition.position + (Vector3.up * (stackUnits.Count * unitHeight));
         recruit.transform.position = newPos;
         recruit.transform.parent = this.transform;
 
-        // Enable their TurretAI (Programmer C will write this)
+        // Turn on combat logic
         recruit.GetComponent<TurretAI>().enabled = true;
+
+        // Ensure it stops moving left once it joins the stack
+        recruit.GetComponent<SurvivorController>().enabled = false;
 
         stackUnits.Add(recruit);
     }
@@ -35,18 +39,21 @@ public class StackManager : MonoBehaviour
     {
         if (stackUnits.Count > 0)
         {
-            // Damage the lowest unit (Index 0)
+            // Get the bottom-most defender
             GameObject bottomUnit = stackUnits[0];
-            // Assuming the recruit has a script with health (reusing EntityBase or a new component)
-            // For simplicity here, let's just assume we track health in a component
 
-            // PSEUDO CODE for health check:
-            // bottomUnit.health -= damage;
-            // if (bottomUnit.health <= 0) RemoveBottomUnit();
+            // We use TakeDamage from EntityBase which Programmer B already wrote!
+            SurvivorController sc = bottomUnit.GetComponent<SurvivorController>();
+
+            if (sc != null)
+            {
+                sc.TakeDamage(damage);
+                // Note: SurvivorController needs to call RemoveBottomFromStack() on death
+            }
         }
         else
         {
-            // Damage the main fortress if stack is empty
+            // No defenders left? Damage the base fortress
             fortressHealth -= damage;
             if (fortressHealth <= 0)
             {
@@ -55,15 +62,15 @@ public class StackManager : MonoBehaviour
         }
     }
 
+    // This is called when a unit's health hits 0
     public void RemoveBottomUnit()
     {
         if (stackUnits.Count == 0) return;
 
         GameObject diedUnit = stackUnits[0];
         stackUnits.RemoveAt(0);
-        Destroy(diedUnit);
 
-        // Cascade: Drop everyone else down
+        // Cascade: The "Book Stack" logic - everyone above drops down one level
         ShiftStackDown();
     }
 
@@ -71,14 +78,13 @@ public class StackManager : MonoBehaviour
     {
         for (int i = 0; i < stackUnits.Count; i++)
         {
-            // Move each unit down by 1 unitHeight
-            // GDD: "Cascade shift" animation
-            stackUnits[i].transform.position = stackBasePosition.position + (Vector3.up * (i * unitHeight));
+            // Calculate new position: Base + (Current Index * Height)
+            Vector3 targetPos = stackBasePosition.position + (Vector3.up * (i * unitHeight));
+
+            // Programmer C: You can replace this with DOTween for a smooth fall
+            stackUnits[i].transform.position = targetPos;
         }
     }
 
-    public float GetDefenseLineX()
-    {
-        return stackBasePosition.position.x + 1.0f; // Buffer distance
-    }
+    public float GetDefenseLineX() => stackBasePosition.position.x + 0.5f;
 }

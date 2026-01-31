@@ -1,18 +1,22 @@
 using UnityEngine;
-using TMPro; // Ensure you have TextMeshPro installed in the Package Manager
+using TMPro;
 
 public class HUDController : MonoBehaviour
 {
     public static HUDController Instance;
 
     [Header("Typing HUD")]
-    public TextMeshProUGUI inputFieldText; // Shows what the player has typed so far
-    public TextMeshProUGUI ghostText;      // List of words currently on screen
+    public TextMeshProUGUI inputFieldText;
+    public TextMeshProUGUI ghostText;
 
     [Header("Top HUD")]
     public TextMeshProUGUI coinText;
     public TextMeshProUGUI waveText;
-    public TextMeshProUGUI comboText;
+    public TextMeshProUGUI comboText; // Note: This will stay empty since we removed combo
+
+    [Header("Overlay & Shop")]
+    public GameObject waveClearOverlay;
+    public GameObject shopPanel; // ADD THIS in the Inspector
 
     private void Awake()
     {
@@ -20,19 +24,33 @@ public class HUDController : MonoBehaviour
         else Destroy(gameObject);
     }
 
-    // Called by TypingManager whenever a key is pressed
+    // --- SHOP LOGIC ---
+    public void ToggleShopUI(bool isOpen)
+    {
+        if (shopPanel != null)
+        {
+            shopPanel.SetActive(isOpen);
+
+            // Allow the player to use the mouse to click upgrade buttons
+            Cursor.visible = isOpen;
+            Cursor.lockState = isOpen ? CursorLockMode.None : CursorLockMode.Locked;
+        }
+    }
+
+    public void ShowWaveClear(bool show)
+    {
+        if (waveClearOverlay != null)
+            waveClearOverlay.SetActive(show);
+    }
+
     public void UpdateTypingUI(string currentInput)
     {
         if (inputFieldText != null)
-        {
-            // Displays current input. Example: "zom"
             inputFieldText.text = currentInput;
-        }
 
         UpdateGhosts();
     }
 
-    // Updates the list of available words to type
     public void UpdateGhosts()
     {
         if (ghostText == null || TypingManager.Instance == null) return;
@@ -45,11 +63,9 @@ public class HUDController : MonoBehaviour
         ghostText.text = ghosts;
     }
 
-    // Called by GameManager when coins are earned
-    public void UpdateEconomyUI(int coins, int combo)
+    public void UpdateEconomyUI(int coins)
     {
         if (coinText != null) coinText.text = "Coins: " + coins;
-        if (comboText != null) comboText.text = "x" + combo;
     }
 
     public void UpdateWaveUI(int wave)

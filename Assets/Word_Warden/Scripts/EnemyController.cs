@@ -8,21 +8,22 @@ public class EnemyController : EntityBase
 
     public override void OnWordTyped()
     {
-        // GDD: Zombies unmask and die. 
-        // For "Armored" zombies (multi-health), you might just subtract health here.
-        // For Basic, it's instant death.
-
+        // 1. Add Coins
         GameManager.Instance.AddCoins(coinsOnKill);
 
-        // Trigger "Unmask peel" animation here (Programmer C will add DOTween later)
+        // 2. Notify GameManager that an enemy is gone (to end the wave)
+        GameManager.Instance.EnemyDefeated();
+
+        // 3. Die (which handles the destruction and unregistering)
         Die();
     }
 
     protected override void Move()
     {
-        // Stop moving if we hit the stack (simple x-axis check)
+        // GDD: Stop moving if we hit the stack
         if (transform.position.x > StackManager.Instance.GetDefenseLineX())
         {
+            // Move left using the EntityBase logic (multiplied by difficulty)
             base.Move();
         }
         else
@@ -34,6 +35,7 @@ public class EnemyController : EntityBase
     void AttackStack()
     {
         // GDD: Zombies reaching the stack DPS the lowest member
+        // Programmer C's StackManager will handle the health subtraction
         StackManager.Instance.DamageBottomUnit(damageToStack * Time.deltaTime);
     }
 }

@@ -1,6 +1,5 @@
 using UnityEngine;
 
-// Abstract base class - cannot be placed directly, must be inherited
 public abstract class EntityBase : MonoBehaviour, ITypeable
 {
     [Header("Stats")]
@@ -9,13 +8,14 @@ public abstract class EntityBase : MonoBehaviour, ITypeable
     protected float currentHealth;
 
     [Header("Word Data")]
-    public string assignedWord; // The word required to kill/interact
+    public string assignedWord;
 
-    protected virtual void Start()
+    // Use OnEnable to ensure registration happens exactly when spawned
+    protected virtual void OnEnable()
     {
         currentHealth = maxHealth;
-        // Register self with Programmer A's system
-        TypingManager.Instance.RegisterTarget(this);
+        if (TypingManager.Instance != null)
+            TypingManager.Instance.RegisterTarget(this);
     }
 
     protected virtual void Update()
@@ -25,31 +25,33 @@ public abstract class EntityBase : MonoBehaviour, ITypeable
 
     protected virtual void Move()
     {
-        // GDD: Spawn right and march left
-        transform.Translate(Vector3.left * moveSpeed * Time.deltaTime);
+        // Difficulty curve: Move speed is modified by the GameManager's scale
+        float scaledSpeed = moveSpeed * (GameManager.Instance != null ? GameManager.Instance.difficultyScale : 1f);
+        transform.Translate(Vector3.left * scaledSpeed * Time.deltaTime);
     }
 
     public virtual void TakeDamage(float amount)
     {
         currentHealth -= amount;
-        if (currentHealth <= 0)
-        {
-            Die();
-        }
+        if (currentHealth <= 0) Die();
     }
 
     protected virtual void Die()
     {
-        TypingManager.Instance.RemoveTarget(this);
+        // Unregister before destroying to avoid null errors in TypingManager
+        if (TypingManager.Instance != null)
+            TypingManager.Instance.RemoveTarget(this);
+
         Destroy(gameObject);
     }
 
-    // --- ITypeable Implementation ---
-    public string GetWord()
-    {
-        return assignedWord;
-    }
-
-    // Abstract: Children must define what happens when typed
+    public string GetWord() => assignedWord;
     public abstract void OnWordTyped();
+
+    // Safety cleanup
+    protected virtual void OnDisable()
+    {
+        if (TypingManager.Instance != null)
+            TypingManager.Instance.RemoveTarget(this);
+    }
 }

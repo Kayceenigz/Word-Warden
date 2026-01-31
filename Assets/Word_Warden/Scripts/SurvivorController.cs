@@ -7,14 +7,8 @@ public class SurvivorController : EntityBase
     public SurvivorState currentState = SurvivorState.Masked;
 
     [Header("Survivor Data")]
-    public string secondWord; // The word needed to recruit
-    public float kneelDuration = 2f;
-
-    protected override void Start()
-    {
-        base.Start();
-        // Visuals: Start with "Glitch Mask" shader (Programmer C handles visuals)
-    }
+    public string secondWord;
+    public float kneelDuration = 5f; // GDD: Window to recruit before they vanish
 
     public override void OnWordTyped()
     {
@@ -24,6 +18,7 @@ public class SurvivorController : EntityBase
         }
         else if (currentState == SurvivorState.Kneeling)
         {
+            StopAllCoroutines(); // Stop the "Vanish" timer
             Recruit();
         }
     }
@@ -31,27 +26,56 @@ public class SurvivorController : EntityBase
     IEnumerator EnterKneelState()
     {
         currentState = SurvivorState.Kneeling;
+        moveSpeed = 0;
 
-        // GDD: Survivor glows, kneels for 2s
-        moveSpeed = 0; // Stop moving
-
-        // Swap word to the second word
+        // Update word for the second phase of typing
         assignedWord = secondWord;
 
-        Debug.Log("Survivor Kneeling... Type " + secondWord + " to recruit!");
+        // GDD: Visual glow/kneel effect
+        Debug.Log("Survivor Unmasked! Quick, type: " + secondWord);
 
         yield return new WaitForSeconds(kneelDuration);
 
-        // If not recruited in time, they might run away or die (optional GDD detail)
-        // For now, they just stay kneeling or return to pool
+        if (currentState == SurvivorState.Kneeling)
+        {
+            // If not recruited in time, they disappear (fail state)
+            Die();
+        }
     }
 
     void Recruit()
     {
         currentState = SurvivorState.Recruited;
-        TypingManager.Instance.RemoveTarget(this); // No longer typeable
 
-        // GDD: Recruits stack atop your base turret
+        // Important: Stop the TypingManager from tracking this survivor as an enemy
+        TypingManager.Instance.RemoveTarget(this);
+
+        // Add to the stack logic
         StackManager.Instance.AddRecruitToStack(this.gameObject);
+    }
+
+    // This is the CRITICAL part for the Stack Cascade
+    public override void TakeDamage(float amount)
+    {
+        // Survivors only take damage once they are Recruited and in the stack
+        if (currentState == SurvivorState.Recruited)
+        {
+            currentHealth -= amount;
+            if (currentHealth <= 0)
+            {
+                // Tell the stack to shift everyone down BEFORE destroying this object
+                StackManager.Instance.RemoveBottomUnit();
+                Die();
+            }
+        }
+    }
+
+    protected override void Die()
+    {
+        // Clean cleanup
+        if (TypingManager.Instance != null)
+            TypingManager.Instance.RemoveTarget(this);
+
+        Destroy(gameObject);
     }
 }
