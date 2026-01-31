@@ -30,7 +30,7 @@ public class WaveSpawner : MonoBehaviour
 
     IEnumerator WaveRoutine(int count, int waveNumber)
     {
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i <= count; i++)
         {
             // Stop spawning if game is over
             if (GameManager.Instance.currentState == GameManager.GameState.GameOver) yield break;

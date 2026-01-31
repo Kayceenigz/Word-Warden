@@ -17,11 +17,24 @@ public class HUDController : MonoBehaviour
     [Header("Overlay & Shop")]
     public GameObject waveClearOverlay;
     public GameObject shopPanel; // ADD THIS in the Inspector
+    public GameObject gameOverPanel;
 
     private void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+    }
+
+    public void Start()
+    {
+        if(shopPanel != null)
+        {
+            shopPanel.SetActive(false);
+        }
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(false);
+        }
     }
 
     // --- SHOP LOGIC ---

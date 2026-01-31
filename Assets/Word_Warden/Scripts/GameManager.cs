@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
@@ -70,6 +71,7 @@ public class GameManager : MonoBehaviour
 
     public void StartNextWave()
     {
+        HUDController.Instance.shopPanel.SetActive(false);
         CancelInvoke("StartNextWave");
 
         // CLEANUP FIRST: Wipe the slate clean
@@ -131,10 +133,22 @@ public class GameManager : MonoBehaviour
 
     public void TriggerGameOver()
     {
+        HUDController.Instance.gameOverPanel.SetActive(true);
         currentState = GameState.GameOver;
         Time.timeScale = 0;
         Debug.Log("GAME OVER: Base Destroyed.");
         // Programmer A: Show Game Over Screen here
+    }
+
+    public void Reload()
+    {
+        Debug.Log("Reloading Game");
+        SceneManager.LoadScene("Level");
+    }
+    public void KillApp()
+    {
+        Debug.Log("This game has quit.");
+        Application.Quit();
     }
 
     public void ClearActiveEntities()
