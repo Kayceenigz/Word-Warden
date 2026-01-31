@@ -13,12 +13,11 @@ public class TurretAI : MonoBehaviour
     void Update()
     {
         // Calculate speed based on Global Upgrades
-        // Example: Base 1.0 + (Level * 0.5)
         float currentFireRate = baseFireRate + (GameManager.Instance.speedUpgradeLevel * 0.5f);
 
         if (Time.time >= nextFireTime)
         {
-            GameObject target = FindClosestEnemy();
+            GameObject target = FindTarget();
             if (target != null)
             {
                 Shoot(target);
@@ -27,15 +26,26 @@ public class TurretAI : MonoBehaviour
         }
     }
 
-    GameObject FindClosestEnemy()
+    GameObject FindTarget()
     {
-        // Shoots raycast to the right to find zombies
-        RaycastHit2D hit = Physics2D.Raycast(transform.position, Vector2.right, range);
+        // 1. Find all enemies in range
+        // We use CircleCast or OverlapCircle to find things near the turret
+        RaycastHit2D[] hits = Physics2D.RaycastAll(transform.position, Vector2.right, range);
 
-        // Tag check: Make sure your Zombie prefab is tagged "Enemy"
-        if (hit.collider != null && hit.collider.CompareTag("Enemy"))
+        foreach (var hit in hits)
         {
-            return hit.collider.gameObject;
+            if (hit.collider != null && hit.collider.CompareTag("Enemy"))
+            {
+                EnemyController enemy = hit.collider.GetComponent<EnemyController>();
+
+                // CRITICAL: Only shoot if the zombie is UNMASKED
+                // (In your new logic, unmasked zombies die instantly, 
+                // but this keeps the logic safe if you add health later)
+                if (enemy != null && !enemy.isMasked)
+                {
+                    return hit.collider.gameObject;
+                }
+            }
         }
         return null;
     }
@@ -44,11 +54,25 @@ public class TurretAI : MonoBehaviour
     {
         if (bulletPrefab != null && firePoint != null)
         {
+            // Point bullet toward the target
             GameObject bullet = Instantiate(bulletPrefab, firePoint.position, Quaternion.identity);
 
-            // Global Damage: Base 10 + (Level * 5)
+            // Calculate damage based on upgrades
             float currentDamage = 10f + (GameManager.Instance.damageUpgradeLevel * 5f);
-            bullet.GetComponent<Projectile>().Setup(currentDamage);
+
+            // Get the projectile script and set it up
+            Projectile projectile = bullet.GetComponent<Projectile>();
+            if (projectile != null)
+            {
+                projectile.Setup(currentDamage);
+            }
         }
+    }
+
+    // Visual aid in the editor to see the turret's range
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawLine(transform.position, transform.position + Vector3.right * range);
     }
 }

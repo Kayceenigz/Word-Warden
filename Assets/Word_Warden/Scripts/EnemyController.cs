@@ -6,24 +6,44 @@ public class EnemyController : EntityBase
     public int coinsOnKill = 10;
     public float damageToStack = 20f;
 
-    public override void OnWordTyped()
+    protected override void Start()
+    {
+        base.Start();
+        type = EntityType.Zombie; // Set type so EntityBase knows what this is
+    }
+
+    // This handles what happens when the MASK word is finished
+    protected override void RevealEntity()
+    {
+        // 1. Call the base reveal logic (sets isMasked = false)
+        base.RevealEntity();
+
+        // 2. Visual/Gameplay feedback:
+        // In your case, unmasking a zombie results in immediate death (shot by stack)
+        HandleZombieDeath();
+    }
+
+    void HandleZombieDeath()
     {
         // 1. Add Coins
-        GameManager.Instance.AddCoins(coinsOnKill);
+        if (GameManager.Instance != null)
+            GameManager.Instance.AddCoins(coinsOnKill);
 
-        // 2. Notify GameManager that an enemy is gone (to end the wave)
-        GameManager.Instance.EnemyDefeated();
+        // 2. Play death effects here if you have them (particles, sounds)
+        Debug.Log("Zombie Unmasked and Shot!");
 
-        // 3. Die (which handles the destruction and unregistering)
+        // 3. Cleanup and notify Wave Manager
         Die();
     }
 
     protected override void Move()
     {
-        // GDD: Stop moving if we hit the stack
-        if (transform.position.x > StackManager.Instance.GetDefenseLineX())
+        // If the zombie is still alive and masked, it moves toward the stack
+        float defenseLine = -6f;
+        if (StackManager.Instance != null) defenseLine = StackManager.Instance.GetDefenseLineX();
+
+        if (transform.position.x > defenseLine)
         {
-            // Move left using the EntityBase logic (multiplied by difficulty)
             base.Move();
         }
         else
@@ -34,8 +54,9 @@ public class EnemyController : EntityBase
 
     void AttackStack()
     {
-        // GDD: Zombies reaching the stack DPS the lowest member
-        // Programmer C's StackManager will handle the health subtraction
-        StackManager.Instance.DamageBottomUnit(damageToStack * Time.deltaTime);
+        if (StackManager.Instance != null)
+        {
+            StackManager.Instance.DamageBottomUnit(damageToStack * Time.deltaTime);
+        }
     }
 }

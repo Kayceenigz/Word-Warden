@@ -5,20 +5,18 @@ public class HUDController : MonoBehaviour
 {
     public static HUDController Instance;
 
-    [Header("Typing HUD")]
-    public TextMeshProUGUI inputFieldText;
-    public TextMeshProUGUI ghostText;
-
     [Header("Top HUD")]
     public TextMeshProUGUI coinText;
     public TextMeshProUGUI waveText;
-    public TextMeshProUGUI comboText; // Note: This will stay empty since we removed combo
 
-    [Header("Overlay & Shop")]
-    public GameObject waveClearOverlay;
-    public GameObject shopPanel; // ADD THIS in the Inspector
+    [Header("Overlay & Panels")]
+    public GameObject shopPanel;
     public GameObject gameOverPanel;
     public GameObject pausePanel;
+    public GameObject waveClearOverlay;
+
+    [Header("Typing HUD")]
+    public TextMeshProUGUI inputFieldText; // The text at the bottom center of the screen
 
     private void Awake()
     {
@@ -28,30 +26,44 @@ public class HUDController : MonoBehaviour
 
     public void Start()
     {
-        if(shopPanel != null)
+        // Set initial states
+        if (shopPanel != null) shopPanel.SetActive(false);
+        if (gameOverPanel != null) gameOverPanel.SetActive(false);
+        if (pausePanel != null) pausePanel.SetActive(false);
+        if (waveClearOverlay != null) waveClearOverlay.SetActive(false);
+
+        // Sync with GameManager values on start
+        if (GameManager.Instance != null)
         {
-            shopPanel.SetActive(false);
-        }
-        if (gameOverPanel != null)
-        {
-            gameOverPanel.SetActive(false);
-        }
-        if (pausePanel != null)
-        {
-            pausePanel.SetActive(false);
+            UpdateEconomyUI(GameManager.Instance.currentCoins);
+            UpdateWaveUI(GameManager.Instance.currentWave);
         }
     }
 
-    // --- SHOP LOGIC ---
+    // This shows the player exactly what they've typed so far for their current target
+    public void UpdateTypingUI(string currentInput)
+    {
+        if (inputFieldText == null) return;
+
+        inputFieldText.text = currentInput;
+
+        // Visual Polish: Only show the UI element if there's actually something typed
+        // This keeps the screen clean when the player isn't actively targeting someone
+        inputFieldText.gameObject.SetActive(!string.IsNullOrEmpty(currentInput));
+    }
+
     public void ToggleShopUI(bool isOpen)
     {
         if (shopPanel != null)
         {
             shopPanel.SetActive(isOpen);
 
-            // Allow the player to use the mouse to click upgrade buttons
+            // Manage the mouse cursor for shop navigation
             Cursor.visible = isOpen;
             Cursor.lockState = isOpen ? CursorLockMode.None : CursorLockMode.Locked;
+
+            // Time Management: Usually, you'll want to pause the game while shopping
+            // Time.timeScale = isOpen ? 0 : 1; 
         }
     }
 
@@ -59,26 +71,6 @@ public class HUDController : MonoBehaviour
     {
         if (waveClearOverlay != null)
             waveClearOverlay.SetActive(show);
-    }
-
-    public void UpdateTypingUI(string currentInput)
-    {
-        if (inputFieldText != null)
-            inputFieldText.text = currentInput;
-
-        UpdateGhosts();
-    }
-
-    public void UpdateGhosts()
-    {
-        if (ghostText == null || TypingManager.Instance == null) return;
-
-        string ghosts = "Targets: ";
-        foreach (var target in TypingManager.Instance.activeTargets)
-        {
-            ghosts += target.GetWord() + "  ";
-        }
-        ghostText.text = ghosts;
     }
 
     public void UpdateEconomyUI(int coins)

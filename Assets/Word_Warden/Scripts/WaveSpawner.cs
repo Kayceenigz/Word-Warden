@@ -14,26 +14,27 @@ public class WaveSpawner : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        // Grab the speed from the prefab once at the start
         if (zombiePrefab != null)
             baseZombieSpeed = zombiePrefab.GetComponent<EnemyController>().moveSpeed;
     }
 
     public void SpawnWave(int waveNumber)
     {
-        // 1. Calculate count
-        int totalToSpawn = 5 + (waveNumber * 2);
+        // Tell the GameManager we are officially in spawning mode
+        GameManager.Instance.isSpawning = true;
 
-        // 2. Sync with GameManager
+        int totalToSpawn = 5 + (waveNumber * 2);
         GameManager.Instance.enemiesRemaining = totalToSpawn;
 
         StopAllCoroutines();
         StartCoroutine(WaveRoutine(totalToSpawn, waveNumber));
+
+        // REMOVED: GameManager.Instance.isSpawning = false; 
+        // If we put it here, it executes instantly!
     }
 
     IEnumerator WaveRoutine(int count, int waveNumber)
     {
-        // FIX: Use 'i < count' to spawn exactly the right amount
         for (int i = 0; i < count; i++)
         {
             if (GameManager.Instance.currentState == GameManager.GameState.GameOver) yield break;
@@ -44,24 +45,29 @@ public class WaveSpawner : MonoBehaviour
             yield return new WaitForSeconds(currentSpawnRate);
         }
 
-        Debug.Log("Spawner: All entities for wave " + waveNumber + " have been sent out.");
+        // THIS is where the spawning officially ends
+        GameManager.Instance.isSpawning = false;
+        Debug.Log("Spawner: Wave " + waveNumber + " is fully dispatched.");
     }
 
     void SpawnEntity(int waveNumber)
     {
-        bool isSurvivor = Random.value > 0.8f;
+        // 20% chance for a survivor, but only if the stack isn't full
+        bool isSurvivor = (Random.value > 0.8f) && (StackManager.Instance.stackUnits.Count < 3);
+
         GameObject obj;
+        EntityBase entityScript;
 
         if (isSurvivor)
         {
-            if(StackManager.Instance.stackUnits.Count<3)
-            {
-                obj = Instantiate(survivorPrefab, spawnPoint.position, Quaternion.identity);
-                SurvivorController sc = obj.GetComponent<SurvivorController>();
+            obj = Instantiate(survivorPrefab, spawnPoint.position, Quaternion.identity);
+            SurvivorController sc = obj.GetComponent<SurvivorController>();
 
-                sc.assignedWord = WordBank.Instance.GetWordByDifficulty(0);
-                sc.secondWord = WordBank.Instance.GetWordByDifficulty(0);
-            }
+            // Set the Mask word and the Recruitment word
+            sc.assignedWord = WordBank.Instance.GetWordByDifficulty(0);
+            sc.recruitmentWord = WordBank.Instance.GetWordByDifficulty(0); // Ensure this variable name matches your SurvivorController
+
+            entityScript = sc;
         }
         else
         {
@@ -74,6 +80,15 @@ public class WaveSpawner : MonoBehaviour
 
             ec.assignedWord = WordBank.Instance.GetWordByDifficulty(wordDifficulty);
             ec.moveSpeed = baseZombieSpeed * GameManager.Instance.difficultyScale;
+
+            entityScript = ec;
+        }
+
+        // CRITICAL: Register the new entity with the TypingManager
+        // Without this, the zombies will walk past and ignore your typing!
+        if (TypingManager.Instance != null && entityScript != null)
+        {
+            TypingManager.Instance.AddTarget(entityScript);
         }
     }
 }

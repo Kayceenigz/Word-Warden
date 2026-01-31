@@ -4,84 +4,117 @@ using System.Collections.Generic;
 public class TypingManager : MonoBehaviour
 {
     public static TypingManager Instance;
+
+    public List<EntityBase> activeTargets = new List<EntityBase>();
     public string currentInput = "";
-    public List<ITypeable> activeTargets = new List<ITypeable>();
 
-    private void Awake()
+    private EntityBase currentTargetEntity;
+
+    private void Awake() => Instance = this;
+
+    void Update()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
+        if (GameManager.Instance.currentState != GameManager.GameState.Playing) return;
+
+        // Capture all input this frame (handles fast typists)
+        foreach (char c in Input.inputString)
+        {
+            ProcessInput(c);
+        }
     }
 
-    private void Update()
+    void ProcessInput(char letter)
     {
-        if (Input.anyKeyDown)
+        // 1. SEARCHING FOR A TARGET
+        if (currentTargetEntity == null)
         {
-            string inputString = Input.inputString;
-
-            foreach (char c in inputString)
+            foreach (EntityBase entity in activeTargets)
             {
-                if (c == '\b') // Backspace
+                // Check if the first letter matches
+                if (entity.assignedWord.Length > 0 && entity.assignedWord[0] == letter)
                 {
-                    if (currentInput.Length > 0)
-                        currentInput = currentInput.Substring(0, currentInput.Length - 1);
-                }
-                else if (c == '\n' || c == '\r') // Enter/Return
-                {
-                    continue;
-                }
-                else
-                {
-                    ProcessKeystroke(c);
+                    currentTargetEntity = entity;
+                    currentInput = letter.ToString();
+
+                    UpdateVisuals();
+                    return; // Target found, exit
                 }
             }
 
-            if (HUDController.Instance != null)
-                HUDController.Instance.UpdateTypingUI(currentInput);
+            // If we reach here, the player typed a key that doesn't match ANY entity
+            HandleTypo();
         }
-    }
-
-    void ProcessKeystroke(char letter)
-    {
-        currentInput += letter;
-        bool validSequence = false;
-        ITypeable completedTarget = null;
-
-        foreach (var target in activeTargets)
+        // 2. TYPING THE LOCKED TARGET
+        else
         {
-            string word = target.GetWord().ToLower();
-            string typed = currentInput.ToLower();
-
-            if (word.StartsWith(typed))
+            // Check if the input matches the next character in the string
+            string word = currentTargetEntity.assignedWord;
+            if (currentInput.Length < word.Length && word[currentInput.Length] == letter)
             {
-                validSequence = true;
-                if (word == typed)
+                currentInput += letter;
+                UpdateVisuals();
+
+                // Check for completion
+                if (currentInput == word)
                 {
-                    completedTarget = target;
-                    break;
+                    EntityBase completedEntity = currentTargetEntity;
+                    ResetTyping(); // Clear HUD first
+                    completedEntity.OnWordTyped(); // Then trigger the Reveal/Recruit
                 }
             }
-        }
-
-        if (completedTarget != null)
-        {
-            completedTarget.OnWordTyped();
-            currentInput = "";
-        }
-        else if (!validSequence)
-        {
-            // GDD: Mismatch causes instant full clear
-            currentInput = "";
+            else
+            {
+                // WRONG KEY: The input is rejected
+                HandleTypo();
+            }
         }
     }
 
-    public void RegisterTarget(ITypeable target) => activeTargets.Add(target);
-    public void RemoveTarget(ITypeable target) => activeTargets.Remove(target);
-}
+    void UpdateVisuals()
+    {
+        if (currentTargetEntity != null)
+        {
+            currentTargetEntity.UpdateTypingVisuals(currentInput);
+        }
 
-// Interface to bridge Programmer A and Programmer B's work
-public interface ITypeable
-{
-    string GetWord();
-    void OnWordTyped();
+        if (HUDController.Instance != null)
+        {
+            HUDController.Instance.UpdateTypingUI(currentInput);
+        }
+    }
+
+    void HandleTypo()
+    {
+        // Feedback: You can add a screen shake or sound effect here
+        Debug.Log("<color=orange>Typo Detected! Entry Rejected.</color>");
+
+        // Option A: Just block the input (strict)
+        // Option B: Reset the current word (punishing) - uncomment the line below if desired
+        ResetTyping(); 
+    }
+
+    public void ResetTyping()
+    {
+        // If we had a target, reset its visual highlight back to white
+        if (currentTargetEntity != null)
+        {
+            currentTargetEntity.UpdateTypingVisuals("");
+        }
+
+        currentTargetEntity = null;
+        currentInput = "";
+
+        if (HUDController.Instance != null)
+        {
+            HUDController.Instance.UpdateTypingUI("");
+        }
+    }
+
+    public void AddTarget(EntityBase entity) => activeTargets.Add(entity);
+
+    public void RemoveTarget(EntityBase entity)
+    {
+        if (activeTargets.Contains(entity)) activeTargets.Remove(entity);
+        if (currentTargetEntity == entity) ResetTyping();
+    }
 }

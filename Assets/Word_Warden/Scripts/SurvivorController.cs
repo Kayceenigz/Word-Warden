@@ -7,83 +7,98 @@ public class SurvivorController : EntityBase
     public SurvivorState currentState = SurvivorState.Masked;
 
     [Header("Survivor Data")]
-    public string secondWord;
-    public float kneelDuration = 5f; // GDD: Window to recruit before they vanish
+    public string recruitmentWord; // The second word
+    public float kneelDuration = 5f;
 
-    public override void OnWordTyped()
+    protected override void Start()
     {
-        if (currentState == SurvivorState.Masked)
-        {
-            StartCoroutine(EnterKneelState());
-        }
-        else if (currentState == SurvivorState.Kneeling)
-        {
-            StopAllCoroutines(); // Stop the "Vanish" timer
-            Recruit();
-        }
+        base.Start();
+        type = EntityType.Survivor;
+        currentState = SurvivorState.Masked;
+    }
+
+    // PHASE 1: The Mask is typed
+    protected override void RevealEntity()
+    {
+        base.RevealEntity(); // sets isMasked = false
+        StartCoroutine(EnterKneelState());
     }
 
     IEnumerator EnterKneelState()
     {
         currentState = SurvivorState.Kneeling;
-        moveSpeed = 0;
-        assignedWord = secondWord;
+        moveSpeed = 0; // Stop moving to wait for player
+
+        // Swap the word to the recruitment word
+        assignedWord = recruitmentWord;
+
+        // Refresh the floating text visuals
+        UpdateTypingVisuals("");
+
+        Debug.Log("Survivor revealed! Type " + recruitmentWord + " to rescue!");
 
         yield return new WaitForSeconds(kneelDuration);
 
+        // If the player wasn't fast enough
         if (currentState == SurvivorState.Kneeling)
         {
-            // Just call Die() - let Die handle the GameManager notification
+            Debug.Log("Survivor timed out and vanished!");
             Die();
         }
+    }
+
+    // PHASE 2: The Recruitment word is typed
+    protected override void OnSecondWordCompleted()
+    {
+        StopAllCoroutines(); // Stop the vanish timer
+        Recruit();
     }
 
     void Recruit()
     {
         currentState = SurvivorState.Recruited;
 
-        // Tell TypingManager they are no longer a target
-        TypingManager.Instance.RemoveTarget(this);
-
-        // Tell GameManager this "threat" is handled
-        GameManager.Instance.EnemyDefeated();
-
-        StackManager.Instance.AddRecruitToStack(this.gameObject);
-
-        // IMPORTANT: We do NOT call Die() here because they are 
-        // now part of the stack and alive!
-    }
-
-    protected override void Die()
-    {
-        // 1. Tell TypingManager to stop tracking us
+        // 1. Remove from the "Enemies to Type" list
         if (TypingManager.Instance != null)
             TypingManager.Instance.RemoveTarget(this);
 
-        // 2. ONLY notify GameManager if we were NOT recruited.
-        // If we are recruited, GameManager was already notified in Recruit().
-        // If we are dying from the Kneel state or being cleared, notify now.
-        if (currentState != SurvivorState.Recruited && GameManager.Instance != null)
-        {
+        // 2. Count this as a "Cleared" entity for the wave logic
+        if (GameManager.Instance != null)
             GameManager.Instance.EnemyDefeated();
-        }
 
-        Destroy(gameObject);
+        // 3. Add to the defensive stack
+        if (StackManager.Instance != null)
+            StackManager.Instance.AddRecruitToStack(this.gameObject);
+
+        // We hide the word label now that they are in the stack
+        if (wordLabel != null) wordLabel.gameObject.SetActive(false);
+
+        Debug.Log("Survivor Recruited!");
     }
 
-    // This is the CRITICAL part for the Stack Cascade
     public override void TakeDamage(float amount)
     {
-        // Survivors only take damage once they are Recruited and in the stack
+        // Only recruited survivors in the stack take damage
         if (currentState == SurvivorState.Recruited)
         {
             currentHealth -= amount;
             if (currentHealth <= 0)
             {
-                // Tell the stack to shift everyone down BEFORE destroying this object
-                StackManager.Instance.RemoveBottomUnit();
-                Die();
+                if (StackManager.Instance != null)
+                    StackManager.Instance.RemoveBottomUnit();
+
+                // When a stack member dies, they are gone forever
+                Destroy(gameObject);
             }
+        }
+    }
+
+    protected override void Die()
+    {
+        // If they vanish or die BEFORE recruitment, we need to notify the wave system
+        if (currentState != SurvivorState.Recruited)
+        {
+            base.Die(); // base.Die handles RemoveTarget and EnemyDefeated
         }
     }
 }

@@ -1,21 +1,35 @@
 using UnityEngine;
+using TMPro;
 
-public abstract class EntityBase : MonoBehaviour, ITypeable
+public class EntityBase : MonoBehaviour
 {
+    public enum EntityType { Zombie, Survivor }
+
+    [Header("Entity Info")]
+    public EntityType type;
+    public bool isMasked = true;
+
     [Header("Stats")]
-    public float moveSpeed = 2f;
+    public float currentHealth;
     public float maxHealth = 100f;
-    protected float currentHealth;
+    public float moveSpeed = 1f;
 
-    [Header("Word Data")]
+    [Header("Typing Visuals")]
     public string assignedWord;
+    public TMP_Text wordLabel; // The floating text above head
+    public Color highlightedColor = Color.red;
 
-    // Use OnEnable to ensure registration happens exactly when spawned
-    protected virtual void OnEnable()
+    protected virtual void Start()
     {
         currentHealth = maxHealth;
-        if (TypingManager.Instance != null)
-            TypingManager.Instance.RegisterTarget(this);
+        isMasked = true; // Everyone starts masked
+
+        // Ensure the word label is visible and showing the first word
+        if (wordLabel != null)
+        {
+            wordLabel.text = assignedWord;
+            UpdateTypingVisuals("");
+        }
     }
 
     protected virtual void Update()
@@ -25,9 +39,59 @@ public abstract class EntityBase : MonoBehaviour, ITypeable
 
     protected virtual void Move()
     {
-        // Difficulty curve: Move speed is modified by the GameManager's scale
-        float scaledSpeed = moveSpeed * (GameManager.Instance != null ? GameManager.Instance.difficultyScale : 1f);
-        transform.Translate(Vector3.left * scaledSpeed * Time.deltaTime);
+        // Basic move left; child classes (EnemyController) will override this
+        // to stop at the defensive line.
+        transform.Translate(Vector2.left * moveSpeed * Time.deltaTime);
+    }
+
+    // Called by TypingManager every time a correct key is pressed
+    public void UpdateTypingVisuals(string typedSoFar)
+    {
+        if (wordLabel == null) return;
+
+        if (string.IsNullOrEmpty(typedSoFar))
+        {
+            wordLabel.text = assignedWord;
+        }
+        else
+        {
+            string remaining = assignedWord.Substring(typedSoFar.Length);
+            // Uses Rich Text to highlight the typed part
+            string colorHex = ColorUtility.ToHtmlStringRGB(highlightedColor);
+            wordLabel.text = $"<color=#{colorHex}>{typedSoFar}</color>{remaining}";
+        }
+    }
+
+    public string GetWord()
+    {
+        return assignedWord;
+    }
+
+    // This is called by TypingManager when the current word is finished
+    public virtual void OnWordTyped()
+    {
+        if (isMasked)
+        {
+            RevealEntity();
+        }
+        else
+        {
+            // If already revealed (like a kneeling survivor), finishing 
+            // the second word means they are recruited.
+            OnSecondWordCompleted();
+        }
+    }
+
+    protected virtual void RevealEntity()
+    {
+        isMasked = false;
+        // Logic for unmasking visuals (changing sprite, etc.) will go in child classes
+        Debug.Log(gameObject.name + " Unmasked! Type is: " + type);
+    }
+
+    protected virtual void OnSecondWordCompleted()
+    {
+        // Overridden by SurvivorController
     }
 
     public virtual void TakeDamage(float amount)
@@ -38,35 +102,14 @@ public abstract class EntityBase : MonoBehaviour, ITypeable
 
     protected virtual void Die()
     {
-        // Unregister before destroying to avoid null errors in TypingManager
+        // Unregister from the list of typeable targets
         if (TypingManager.Instance != null)
             TypingManager.Instance.RemoveTarget(this);
+
+        // Notify GameManager to reduce enemy count
+        if (GameManager.Instance != null)
+            GameManager.Instance.EnemyDefeated();
 
         Destroy(gameObject);
-    }
-
-    public string GetWord() => assignedWord;
-    public abstract void OnWordTyped();
-
-    // Safety cleanup
-    protected virtual void OnDisable()
-    {
-        if (TypingManager.Instance != null)
-            TypingManager.Instance.RemoveTarget(this);
-    }
-    protected virtual void OnDestroy()
-    {
-        // Safety check: if the object is destroyed while the game is playing
-        // and it was still a 'target', we decrement the counter to prevent soft-locks.
-        if (GameManager.Instance != null && GameManager.Instance.currentState == GameManager.GameState.Playing)
-        {
-            // Note: Only do this if your specific death logic didn't already call it.
-            // A simple way is to check if it's still in the TypingManager's list.
-            if (TypingManager.Instance != null && TypingManager.Instance.activeTargets.Contains(this))
-            {
-                // This is a backup to ensure the wave never sticks at "1 or 2 remaining"
-                // GameManager.Instance.EnemyDefeated(); 
-            }
-        }
     }
 }
