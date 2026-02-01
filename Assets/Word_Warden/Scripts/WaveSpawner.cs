@@ -51,9 +51,18 @@ public class WaveSpawner : MonoBehaviour
             yield return new WaitForSeconds(currentSpawnRate);
         }
 
-        yield return new WaitForSeconds(1.0f);
+        // --- THE FIX STARTS HERE ---
+        // Instead of just waiting 1 second, we wait until the board is clear
+        while (GameManager.Instance.enemiesRemaining > 0)
+        {
+            // This keeps the Coroutine alive as long as zombies exist
+            yield return new WaitForSeconds(0.5f);
+        }
+
+        // Now it's actually safe to finish
         GameManager.Instance.isSpawning = false;
         GameManager.Instance.EnemyDefeated();
+        // The line above checks if spawning is false AND enemies == 0 to trigger the UI
     }
 
     void SpawnEntity(int waveNumber)
