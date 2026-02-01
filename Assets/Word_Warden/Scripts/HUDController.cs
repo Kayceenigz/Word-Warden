@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI; // Added for Mask Icons (Images)
 using TMPro;
 
 public class HUDController : MonoBehaviour
@@ -6,17 +7,27 @@ public class HUDController : MonoBehaviour
     public static HUDController Instance;
 
     [Header("Top HUD")]
-    public TextMeshProUGUI coinText;
     public TextMeshProUGUI waveText;
+    // Note: coinText removed as per your new stat-focused design, 
+    // but keep it if you still use currency for something else.
 
-    [Header("Overlay & Panels")]
-    public GameObject shopPanel;
+    [Header("Overlay & Stat Panels")]
+    public GameObject statScreenPanel; // Formerly Shop Panel
     public GameObject gameOverPanel;
     public GameObject pausePanel;
-    public GameObject waveClearOverlay;
+
+    [Header("Wave Results (Stat Screen)")]
+    public TextMeshProUGUI accuracyResultText;
+    public TextMeshProUGUI correctKeysText;
+    public TextMeshProUGUI typosText;
+
+    [Header("Mask Inventory UI")]
+    public Image difficultyMaskIcon; // Dim these by default, light up when collected
+    public Image speedMaskIcon;
+    public Image healthMaskIcon;
 
     [Header("Typing HUD")]
-    public TextMeshProUGUI inputFieldText; // The text at the bottom center of the screen
+    public TextMeshProUGUI inputFieldText;
 
     private void Awake()
     {
@@ -26,60 +37,91 @@ public class HUDController : MonoBehaviour
 
     public void Start()
     {
-        // Set initial states
-        if (shopPanel != null) shopPanel.SetActive(false);
+        // Initial States
+        if (statScreenPanel != null) statScreenPanel.SetActive(false);
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
-        if (waveClearOverlay != null) waveClearOverlay.SetActive(false);
 
-        // Sync with GameManager values on start
+        // Initialize Mask Icons to look "Locked" (Semi-transparent)
+        InitializeMaskUI();
+
         if (GameManager.Instance != null)
         {
-            UpdateEconomyUI(GameManager.Instance.currentCoins);
             UpdateWaveUI(GameManager.Instance.currentWave);
         }
     }
 
-    // This shows the player exactly what they've typed so far for their current target
-    public void UpdateTypingUI(string currentInput)
+    // --- STAT SCREEN LOGIC ---
+
+    public void DisplayWaveResults(int correct, int errors, float accuracy)
     {
-        if (inputFieldText == null) return;
-
-        inputFieldText.text = currentInput;
-
-        // Visual Polish: Only show the UI element if there's actually something typed
-        // This keeps the screen clean when the player isn't actively targeting someone
-        inputFieldText.gameObject.SetActive(!string.IsNullOrEmpty(currentInput));
+        if (correctKeysText != null) correctKeysText.text = correct.ToString();
+        if (typosText != null) typosText.text = errors.ToString();
+        if (accuracyResultText != null) accuracyResultText.text = accuracy.ToString("F1") + "%";
     }
 
-    public void ToggleShopUI(bool isOpen)
+    public void ToggleStatScreen(bool isOpen)
     {
-        if (shopPanel != null)
+        if (statScreenPanel != null)
         {
-            shopPanel.SetActive(isOpen);
+            statScreenPanel.SetActive(isOpen);
 
-            // Manage the mouse cursor for shop navigation
+            // Manage cursor for clicking the "Next Wave" button
             Cursor.visible = isOpen;
             Cursor.lockState = isOpen ? CursorLockMode.None : CursorLockMode.Locked;
-
-            // Time Management: Usually, you'll want to pause the game while shopping
-            // Time.timeScale = isOpen ? 0 : 1; 
         }
     }
 
-    public void ShowWaveClear(bool show)
+    // --- MASK UI LOGIC ---
+
+    private void InitializeMaskUI()
     {
-        if (waveClearOverlay != null)
-            waveClearOverlay.SetActive(show);
+        // Start with icons grayed out or low alpha
+        if (difficultyMaskIcon) difficultyMaskIcon.color = new Color(1, 1, 1, 0.2f);
+        if (speedMaskIcon) speedMaskIcon.color = new Color(1, 1, 1, 0.2f);
+        if (healthMaskIcon) healthMaskIcon.color = new Color(1, 1, 1, 0.2f);
     }
 
-    public void UpdateEconomyUI(int coins)
+    public void UpdateMaskIcons()
     {
-        if (coinText != null) coinText.text = "Coins: " + coins;
+        // Light up icons if the player has collected them
+        if (GameManager.Instance.hasDifficultyMask) difficultyMaskIcon.color = Color.white;
+        if (GameManager.Instance.hasSpeedMask) speedMaskIcon.color = Color.white;
+        if (GameManager.Instance.hasHealthMask) healthMaskIcon.color = Color.white;
+    }
+
+    // --- CORE HUD UPDATES ---
+
+    public void UpdateTypingUI(string currentInput)
+    {
+        if (inputFieldText == null) return;
+        inputFieldText.text = currentInput;
+        inputFieldText.gameObject.SetActive(!string.IsNullOrEmpty(currentInput));
     }
 
     public void UpdateWaveUI(int wave)
     {
         if (waveText != null) waveText.text = "Wave: " + wave;
+    }
+
+    // Logic for other panels remains consistent
+    public void TogglePause(bool isOpen)
+    {
+        if (pausePanel != null)
+        {
+            pausePanel.SetActive(isOpen);
+            Cursor.visible = isOpen;
+            Cursor.lockState = isOpen ? CursorLockMode.None : CursorLockMode.Locked;
+        }
+    }
+
+    public void ToggleGameOver(bool isOpen)
+    {
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(isOpen);
+            Cursor.visible = isOpen;
+            Cursor.lockState = isOpen ? CursorLockMode.None : CursorLockMode.Locked;
+        }
     }
 }

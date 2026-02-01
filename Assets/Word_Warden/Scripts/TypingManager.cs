@@ -10,13 +10,18 @@ public class TypingManager : MonoBehaviour
 
     private EntityBase currentTargetEntity;
 
+    [Header("Session Stats")]
+    public int totalCorrectKeystrokes = 0;
+    public int totalTypos = 0;
+    public int totalWordsCompleted = 0;
+
     private void Awake() => Instance = this;
 
     void Update()
     {
+        // Only allow typing if the game state is "Playing"
         if (GameManager.Instance.currentState != GameManager.GameState.Playing) return;
 
-        // Capture all input this frame (handles fast typists)
         foreach (char c in Input.inputString)
         {
             ProcessInput(c);
@@ -30,41 +35,40 @@ public class TypingManager : MonoBehaviour
         {
             foreach (EntityBase entity in activeTargets)
             {
-                // Check if the first letter matches
                 if (entity.assignedWord.Length > 0 && entity.assignedWord[0] == letter)
                 {
                     currentTargetEntity = entity;
                     currentInput = letter.ToString();
 
+                    totalCorrectKeystrokes++; // NEW: Track first letter success
                     UpdateVisuals();
-                    return; // Target found, exit
+                    return;
                 }
             }
 
-            // If we reach here, the player typed a key that doesn't match ANY entity
+            // Typed a key that didn't match any entity
             HandleTypo();
         }
         // 2. TYPING THE LOCKED TARGET
         else
         {
-            // Check if the input matches the next character in the string
             string word = currentTargetEntity.assignedWord;
             if (currentInput.Length < word.Length && word[currentInput.Length] == letter)
             {
                 currentInput += letter;
+                totalCorrectKeystrokes++; // NEW: Track middle/end letter success
                 UpdateVisuals();
 
-                // Check for completion
                 if (currentInput == word)
                 {
+                    totalWordsCompleted++; // NEW: Track full word completion
                     EntityBase completedEntity = currentTargetEntity;
-                    ResetTyping(); // Clear HUD first
-                    completedEntity.OnWordTyped(); // Then trigger the Reveal/Recruit
+                    ResetTyping();
+                    completedEntity.OnWordTyped();
                 }
             }
             else
             {
-                // WRONG KEY: The input is rejected
                 HandleTypo();
             }
         }
@@ -85,17 +89,15 @@ public class TypingManager : MonoBehaviour
 
     void HandleTypo()
     {
-        // Feedback: You can add a screen shake or sound effect here
-        Debug.Log("<color=orange>Typo Detected! Entry Rejected.</color>");
+        totalTypos++; // NEW: Track the error
+        Debug.Log("<color=red>Typo Detected!</color> Total Errors: " + totalTypos);
 
-        // Option A: Just block the input (strict)
-        // Option B: Reset the current word (punishing) - uncomment the line below if desired
-        ResetTyping(); 
+        // Feedback: Reset typing on error (Optional, but makes it harder/stricter)
+        ResetTyping();
     }
 
     public void ResetTyping()
     {
-        // If we had a target, reset its visual highlight back to white
         if (currentTargetEntity != null)
         {
             currentTargetEntity.UpdateTypingVisuals("");
@@ -108,6 +110,14 @@ public class TypingManager : MonoBehaviour
         {
             HUDController.Instance.UpdateTypingUI("");
         }
+    }
+
+    // NEW: Called by GameManager at the start of each wave
+    public void ResetStats()
+    {
+        totalCorrectKeystrokes = 0;
+        totalTypos = 0;
+        totalWordsCompleted = 0;
     }
 
     public void AddTarget(EntityBase entity) => activeTargets.Add(entity);

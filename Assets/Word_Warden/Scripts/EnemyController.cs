@@ -3,51 +3,55 @@ using UnityEngine;
 public class EnemyController : EntityBase
 {
     [Header("Enemy Specifics")]
-    public int coinsOnKill = 10;
     public float damageToStack = 20f;
 
     protected override void Start()
     {
         base.Start();
-        type = EntityType.Zombie; // Set type so EntityBase knows what this is
+        type = EntityType.Zombie;
     }
 
-    // This handles what happens when the MASK word is finished
+    // This handles what happens when the typing is finished
     protected override void RevealEntity()
     {
         // 1. Call the base reveal logic (sets isMasked = false)
         base.RevealEntity();
 
-        // 2. Visual/Gameplay feedback:
-        // In your case, unmasking a zombie results in immediate death (shot by stack)
-        HandleZombieDeath();
+        // 2. In your new design, completing the word unmasks and defeats them
+        HandleZombieDefeat();
     }
 
-    void HandleZombieDeath()
+    void HandleZombieDefeat()
     {
-        // 1. Add Coins
+        // Play death effects here (particles/sound)
+        Debug.Log("Zombie defeated via typing!");
+
+        // Notify GameManager to track enemies remaining and end wave if necessary
         if (GameManager.Instance != null)
-            GameManager.Instance.AddCoins(coinsOnKill);
+        {
+            GameManager.Instance.EnemyDefeated();
+        }
 
-        // 2. Play death effects here if you have them (particles, sounds)
-        Debug.Log("Zombie Unmasked and Shot!");
-
-        // 3. Cleanup and notify Wave Manager
+        // Cleanup entity from scene and TypingManager
         Die();
     }
 
     protected override void Move()
     {
-        // If the zombie is still alive and masked, it moves toward the stack
+        // Determine where the tower/stack starts
         float defenseLine = -6f;
-        if (StackManager.Instance != null) defenseLine = StackManager.Instance.GetDefenseLineX();
+        if (StackManager.Instance != null)
+            defenseLine = StackManager.Instance.GetDefenseLineX();
 
+        // Move left toward the player
         if (transform.position.x > defenseLine)
         {
-            base.Move();
+            // Note: moveSpeed is set by WaveSpawner, which already includes Mask modifiers
+            transform.Translate(Vector2.left * moveSpeed * Time.deltaTime);
         }
         else
         {
+            // If they reach the tower, they deal damage
             AttackStack();
         }
     }
@@ -56,6 +60,7 @@ public class EnemyController : EntityBase
     {
         if (StackManager.Instance != null)
         {
+            // Damage the bottom survivor or the fortress itself
             StackManager.Instance.DamageBottomUnit(damageToStack * Time.deltaTime);
         }
     }

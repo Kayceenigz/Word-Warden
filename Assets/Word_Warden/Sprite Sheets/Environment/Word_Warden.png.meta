@@ -144,7 +144,7 @@ TextureImporter:
         width: 209
         height: 209
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
@@ -165,7 +165,7 @@ TextureImporter:
         width: 209
         height: 209
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
@@ -186,7 +186,7 @@ TextureImporter:
         width: 209
         height: 209
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
@@ -194,6 +194,69 @@ TextureImporter:
       bones: []
       spriteID: 810cb2b8f14cc2847ac58705e4bffd46
       internalID: -1171686046
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Word_Warden_3
+      rect:
+        serializedVersion: 2
+        x: 797
+        y: 958
+        width: 270
+        height: 380
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d701c113ac46c2a48b9053e68b4b0cc8
+      internalID: -1381979973
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Word_Warden_4
+      rect:
+        serializedVersion: 2
+        x: 484
+        y: 958
+        width: 270
+        height: 380
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c2cb0a735bcf10743848295961e4d639
+      internalID: 1585270632
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Word_Warden_5
+      rect:
+        serializedVersion: 2
+        x: 139
+        y: 958
+        width: 270
+        height: 380
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 30fde3ed9aae8fd439b46fd71ca0a5ba
+      internalID: 1522290848
       vertices: []
       indices: 
       edges: []
@@ -212,6 +275,9 @@ TextureImporter:
       Word_Warden_0: 1565630050
       Word_Warden_1: 1661945969
       Word_Warden_2: -1171686046
+      Word_Warden_3: -1381979973
+      Word_Warden_4: 1585270632
+      Word_Warden_5: 1522290848
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

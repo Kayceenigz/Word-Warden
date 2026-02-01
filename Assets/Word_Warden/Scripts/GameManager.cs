@@ -1,4 +1,3 @@
-using Unity.VisualScripting.Antlr3.Runtime;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -6,11 +5,9 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
-    public enum GameState { Menu, Playing, Shop, Paused, GameOver }
+    // Added Intermission state for the stat screen
+    public enum GameState { Menu, Playing, Intermission, Paused, GameOver }
     public GameState currentState;
-
-    [Header("Economy")]
-    public int currentCoins = 0;
 
     [Header("Wave Settings")]
     public int currentWave = 0;
@@ -18,11 +15,11 @@ public class GameManager : MonoBehaviour
     public float difficultyScale = 1.0f;
     public float maxDifficulty = 3.0f;
 
-    [Header("Global Upgrades (Level 0+)")]
-    public int speedUpgradeLevel = 0;
-    public int damageUpgradeLevel = 0;
+    [Header("Mask Abilities (Active Buffs)")]
+    public bool hasDifficultyMask = false; // Reduces difficulty scale by 10%
+    public bool hasSpeedMask = false;      // Reduces zombie speed by 10%
+    public bool hasHealthMask = false;     // Increases Fortress Health
 
-    // This must be set to true by WaveSpawner.cs when it starts spawning
     [HideInInspector] public bool isSpawning = false;
 
     private void Awake()
@@ -30,19 +27,14 @@ public class GameManager : MonoBehaviour
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
 
-        Time.timeScale = 1; // Ensure time is running on start
+        Time.timeScale = 1;
     }
 
     void Start()
     {
-        // Initial UI Update
         if (HUDController.Instance != null)
-        {
-            HUDController.Instance.UpdateEconomyUI(currentCoins);
             HUDController.Instance.UpdateWaveUI(currentWave);
-        }
 
-        // Give the player 2 seconds to get ready before Wave 1
         Invoke("StartNextWave", 2f);
     }
 
@@ -53,35 +45,44 @@ public class GameManager : MonoBehaviour
 
     public void StartNextWave()
     {
-        // Close Shop if it was open
+        // Close Stat Screen/Intermission UI
         if (HUDController.Instance != null)
-            HUDController.Instance.ToggleShopUI(false);
+            HUDController.Instance.ToggleStatScreen(false);
 
         CancelInvoke("StartNextWave");
-
-        // 1. Clean up any leftover enemies from last wave
         ClearActiveEntities();
 
-        // 2. Increment Wave
+        // Reset Typing Stats for the new wave
+        TypingManager.Instance.ResetStats();
+
         currentWave++;
-        difficultyScale = Mathf.Min(maxDifficulty, 1.0f + (currentWave * 0.15f));
+
+        // --- APPLY MASK ABILITY: Difficulty Reduction ---
+        float baseDifficulty = 1.0f + (currentWave * 0.15f);
+        difficultyScale = hasDifficultyMask ? baseDifficulty * 0.9f : baseDifficulty;
+        difficultyScale = Mathf.Min(maxDifficulty, difficultyScale);
+
         currentState = GameState.Playing;
 
-        // 3. Update HUD
         if (HUDController.Instance != null)
             HUDController.Instance.UpdateWaveUI(currentWave);
 
-        // 4. Trigger Spawner
         WaveSpawner.Instance.SpawnWave(currentWave);
     }
 
     public void EnemyDefeated()
     {
         enemiesRemaining--;
-        Debug.Log($"Entity Cleared. {enemiesRemaining} left in wave.");
 
-        // Check if wave is over
-        if (enemiesRemaining <= 0 && !isSpawning && currentState == GameState.Playing)
+        // Check for stragglers
+        EntityBase[] stragglers = FindObjectsOfType<EntityBase>();
+        int actualActiveEnemies = 0;
+        foreach (var e in stragglers)
+        {
+            if (TypingManager.Instance.activeTargets.Contains(e)) actualActiveEnemies++;
+        }
+
+        if ((enemiesRemaining <= 0 || actualActiveEnemies == 0) && !isSpawning)
         {
             EndWave();
         }
@@ -89,66 +90,50 @@ public class GameManager : MonoBehaviour
 
     void EndWave()
     {
-        currentState = GameState.Shop;
+        currentState = GameState.Intermission;
 
-        // Open the Shop automatically between waves
+        // CALCULATE STATS
+        int correct = TypingManager.Instance.totalCorrectKeystrokes;
+        int errors = TypingManager.Instance.totalTypos;
+        int total = correct + errors;
+
+        float accuracy = total > 0 ? ((float)correct / total) * 100f : 0f;
+
+        // Display Stats on HUD
         if (HUDController.Instance != null)
-            HUDController.Instance.ToggleShopUI(true);
-    }
-
-    // --- SHOP UPGRADES ---
-
-    public void UpgradeGlobalSpeed()
-    {
-        int cost = 100 + (speedUpgradeLevel * 50);
-        if (currentCoins >= cost)
         {
-            currentCoins -= cost;
-            speedUpgradeLevel++;
-            UpdateEconomy();
-            Debug.Log("Fire Rate Upgraded!");
+            HUDController.Instance.DisplayWaveResults(correct, errors, accuracy);
+            HUDController.Instance.ToggleStatScreen(true);
         }
     }
 
-    public void UpgradeGlobalDamage()
+    // --- MASK COLLECTION SYSTEM ---
+    // This will be called by your Mask Pickups
+    public void CollectMask(int maskType)
     {
-        int cost = 100 + (damageUpgradeLevel * 50);
-        if (currentCoins >= cost)
+        switch (maskType)
         {
-            currentCoins -= cost;
-            damageUpgradeLevel++;
-            UpdateEconomy();
-            Debug.Log("Bullet Damage Upgraded!");
+            case 0: // Difficulty Mask
+                hasDifficultyMask = true;
+                break;
+            case 1: // Speed Mask
+                hasSpeedMask = true;
+                break;
+            case 2: // Health Mask
+                hasHealthMask = true;
+                // Call the new StackManager function to increase max health
+                StackManager.Instance.IncreaseMaxHealth(50f);
+                break;
         }
-    }
 
-    public void BuyFortressHealth()
-    {
-        int cost = 50;
-        if (currentCoins >= cost)
-        {
-            currentCoins -= cost;
-            StackManager.Instance.fortressHealth += 20;
-            UpdateEconomy();
-        }
-    }
-
-    private void UpdateEconomy()
-    {
         if (HUDController.Instance != null)
-            HUDController.Instance.UpdateEconomyUI(currentCoins);
-    }
-
-    // --- UTILITY ---
-
-    public void AddCoins(int amount)
-    {
-        currentCoins += amount;
-        UpdateEconomy();
+            HUDController.Instance.UpdateMaskIcons();
     }
 
     public void TriggerGameOver()
     {
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
         currentState = GameState.GameOver;
         Time.timeScale = 0;
         if (HUDController.Instance != null)
@@ -157,9 +142,10 @@ public class GameManager : MonoBehaviour
 
     public void TogglePause()
     {
-
         if (currentState == GameState.Playing)
         {
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
             currentState = GameState.Paused;
             Time.timeScale = 0;
             HUDController.Instance.pausePanel.SetActive(true);
@@ -174,17 +160,14 @@ public class GameManager : MonoBehaviour
 
     public void ClearActiveEntities()
     {
-        // Remove entities currently in the field (walking/kneeling)
         EntityBase[] entities = FindObjectsOfType<EntityBase>();
         foreach (EntityBase e in entities)
         {
-            // If they are in the activeTargets list, they are not in the stack yet
             if (TypingManager.Instance.activeTargets.Contains(e))
             {
                 Destroy(e.gameObject);
             }
         }
-
         enemiesRemaining = 0;
         TypingManager.Instance.ResetTyping();
     }

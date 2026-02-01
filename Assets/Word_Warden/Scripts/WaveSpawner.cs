@@ -5,22 +5,27 @@ public class WaveSpawner : MonoBehaviour
 {
     public static WaveSpawner Instance;
 
-    public GameObject zombiePrefab;
-    public GameObject survivorPrefab;
+    [Header("Prefabs")]
+    public GameObject[] zombieVisualPrefabs; // Array for the 3 cosmetic types
+    public GameObject[] maskPrefabs;         // Changed to Array for your 3 separate Mask prefabs
     public Transform spawnPoint;
 
     private float baseZombieSpeed;
 
     private void Awake()
     {
-        Instance = this;
-        if (zombiePrefab != null)
-            baseZombieSpeed = zombiePrefab.GetComponent<EnemyController>().moveSpeed;
+        if (Instance == null) Instance = this;
+
+        // Grab the baseline speed from the first zombie variant
+        if (zombieVisualPrefabs.Length > 0)
+        {
+            EnemyController ec = zombieVisualPrefabs[0].GetComponent<EnemyController>();
+            if (ec != null) baseZombieSpeed = ec.moveSpeed;
+        }
     }
 
     public void SpawnWave(int waveNumber)
     {
-        // Tell the GameManager we are officially in spawning mode
         GameManager.Instance.isSpawning = true;
 
         int totalToSpawn = 5 + (waveNumber * 2);
@@ -28,16 +33,17 @@ public class WaveSpawner : MonoBehaviour
 
         StopAllCoroutines();
         StartCoroutine(WaveRoutine(totalToSpawn, waveNumber));
-
-        // REMOVED: GameManager.Instance.isSpawning = false; 
-        // If we put it here, it executes instantly!
     }
 
     IEnumerator WaveRoutine(int count, int waveNumber)
     {
         for (int i = 0; i < count; i++)
         {
-            if (GameManager.Instance.currentState == GameManager.GameState.GameOver) yield break;
+            if (GameManager.Instance.currentState == GameManager.GameState.GameOver)
+            {
+                GameManager.Instance.isSpawning = false;
+                yield break;
+            }
 
             SpawnEntity(waveNumber);
 
@@ -45,50 +51,64 @@ public class WaveSpawner : MonoBehaviour
             yield return new WaitForSeconds(currentSpawnRate);
         }
 
-        // THIS is where the spawning officially ends
+        yield return new WaitForSeconds(1.0f);
         GameManager.Instance.isSpawning = false;
-        Debug.Log("Spawner: Wave " + waveNumber + " is fully dispatched.");
+        GameManager.Instance.EnemyDefeated();
     }
 
     void SpawnEntity(int waveNumber)
     {
-        // 20% chance for a survivor, but only if the stack isn't full
-        bool isSurvivor = (Random.value > 0.8f) && (StackManager.Instance.stackUnits.Count < 3);
+        EntityBase entityScript = null;
+        GameObject obj = null;
 
-        GameObject obj;
-        EntityBase entityScript;
+        // Determine if we are spawning a mask (e.g., 5% chance)
+        bool spawnMask = (Random.value > 0.95f) && !AllMasksCollected();
 
-        if (isSurvivor)
+        if (spawnMask && maskPrefabs.Length > 0)
         {
-            obj = Instantiate(survivorPrefab, spawnPoint.position, Quaternion.identity);
-            SurvivorController sc = obj.GetComponent<SurvivorController>();
+            // Pick a random Mask prefab from your array (Health, Speed, or Difficulty)
+            int randomMaskIndex = Random.Range(0, maskPrefabs.Length);
+            obj = Instantiate(maskPrefabs[randomMaskIndex], spawnPoint.position, Quaternion.identity);
 
-            // Set the Mask word and the Recruitment word
-            sc.assignedWord = WordBank.Instance.GetWordByDifficulty(0);
-            sc.recruitmentWord = WordBank.Instance.GetWordByDifficulty(0); // Ensure this variable name matches your SurvivorController
+            MaskPickup mp = obj.GetComponent<MaskPickup>();
 
-            entityScript = sc;
+            // Set the first "Catch" word. The second "Hard" word is handled inside MaskPickup's script.
+            mp.assignedWord = WordBank.Instance.GetWordByDifficulty(0);
+
+            entityScript = mp;
         }
         else
         {
-            obj = Instantiate(zombiePrefab, spawnPoint.position, Quaternion.identity);
+            // Spawn a random zombie variant
+            int randomIndex = Random.Range(0, zombieVisualPrefabs.Length);
+            obj = Instantiate(zombieVisualPrefabs[randomIndex], spawnPoint.position, Quaternion.identity);
+
             EnemyController ec = obj.GetComponent<EnemyController>();
 
-            int wordDifficulty = 0;
-            if (waveNumber > 3) wordDifficulty = 1;
-            if (waveNumber > 7) wordDifficulty = 2;
-
+            // Difficulty scaling for words
+            int wordDifficulty = (waveNumber > 7) ? 2 : (waveNumber > 3) ? 1 : 0;
             ec.assignedWord = WordBank.Instance.GetWordByDifficulty(wordDifficulty);
-            ec.moveSpeed = baseZombieSpeed * GameManager.Instance.difficultyScale;
+
+            // Apply the 10% speed reduction if the player has the Speed Mask
+            float speedMultiplier = GameManager.Instance.hasSpeedMask ? 0.9f : 1.0f;
+            ec.moveSpeed = baseZombieSpeed * GameManager.Instance.difficultyScale * speedMultiplier;
 
             entityScript = ec;
         }
 
-        // CRITICAL: Register the new entity with the TypingManager
-        // Without this, the zombies will walk past and ignore your typing!
+        // Register the target so TypingManager can track it
         if (TypingManager.Instance != null && entityScript != null)
         {
             TypingManager.Instance.AddTarget(entityScript);
         }
+    }
+
+    private bool AllMasksCollected()
+    {
+        if (GameManager.Instance == null) return false;
+
+        return GameManager.Instance.hasDifficultyMask &&
+               GameManager.Instance.hasSpeedMask &&
+               GameManager.Instance.hasHealthMask;
     }
 }
